@@ -1,0 +1,154 @@
+/*=========================================================================
+
+  Program:   FiberViewer
+  Module:    $RCSfile: vtkQtRenderWindow.h,v $
+  Language:  C++
+  Date:      $Date: 2009/07/06 16:52:04 $
+  Version:   $Revision: 1.3 $
+  Author:    Matthieu Jomier
+
+  Copyright (c) 2004 NeuroImaging Lab @ UNC. All rights reserved.
+  See NeuroLibCopyright.txt for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even 
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR 
+     PURPOSE.  See the above copyright notices for more information.
+
+=========================================================================*/
+#ifndef vtkQtRenderWindow_h  
+#define vtkQtRenderWindow_h
+
+//#include <iostream>
+#include <stdlib.h>
+#include <vtkOpenGLRenderWindow.h>
+#include <qgl.h>
+#include <QGLWidget>
+#include <QtOpenGL>
+
+//#include "vtkQGLWindowQT.h"  
+  
+#if defined(WIN32)  
+  #include <windows.h>  
+#endif
+
+#include "vtkToolkits.h"
+#include "vtkRendererCollection.h"
+
+#include "vtkQtRenderWindowInteractor.h"  
+
+
+using namespace Qt;
+class vtkQtRenderWindowInteractor;  
+  
+//class vtkQtRenderWindowQT;  
+  
+class vtkQtRenderWindow : public vtkOpenGLRenderWindow, public QGLWidget  
+{  
+public:  
+  /* ------------------------------------------------------------  
+  * Methods from vtkRenderWindow class.  
+  */  
+  /*static vtkQtRenderWindow *New()  
+  {  
+    return new vtkQtRenderWindow() ;  
+  };*/  
+  
+  vtkQtRenderWindow(QWidget *parent=0, const char* name=0, const QGLWidget *shareWidget = 0, WFlags f = 0);  
+  
+  vtkQtRenderWindow(const QGLFormat & format, QWidget *parent, const char *name, const QGLWidget *shared);  
+  
+  virtual void paintGL()  
+  {  
+    RenderSuper();  
+    QGLWidget::paintGL();  
+  }  
+  
+  virtual void resizeGL(int w, int h)  
+  {  
+    QGLWidget::resizeGL(w, h);  
+//    vtkQtRenderWindow *window = (vtkQtRenderWindow*)this->GetVTKPtr();  
+    SetSizeSuper(w, h);  
+  }  
+  
+  vtkTypeMacro(vtkQtRenderWindow, vtkOpenGLRenderWindow);  
+  
+  void PrintSelf(ostream& os, vtkIndent indent);  
+  
+  virtual void Start(void);  
+  virtual void Frame(void);  
+  void WindowInitialize(void);  
+  virtual void SetFullScreen(int);  
+  virtual void WindowRemap(void);  
+  void PrefFullScreen(void);  
+  void SetSize(int,int);  
+  void SetSizeSuper(int w,int h);  
+  void HideCursor(){/*Todo*/};  
+  void ShowCursor(){/*Todo*/};  
+  int GetEventPending(){return 0;/*Todo*/};  
+  
+  virtual void MakeCurrent();  
+
+  //Added to avoid a bug with VTK. Temporary fix...
+  bool IsCurrent(){return true;};  
+  
+  virtual void Render(void);  
+  virtual void RenderSuper(void){vtkOpenGLRenderWindow::Render();};  
+  
+  
+  // Return NULL if Start wasn't called!!! Display errormessage  
+  virtual QWidget* GetQTPtr();  
+ 
+  // Description:  
+  virtual void SetDisplayId(void *) {}  
+  virtual void SetWindowId(void *)  {}  
+  virtual void SetParentId(void *)  {}  
+  virtual void *GetGenericDisplayId();  
+  virtual void *GetGenericWindowId();  
+  virtual void *GetGenericParentId();  
+  virtual void *GetGenericContext();  
+  virtual void *GetGenericDrawable();  
+  virtual void SetWindowInfo(char *) {}  
+  virtual void SetParentInfo(char *) {}  
+  virtual void SetNextWindowId(void *) {};  
+  virtual void SetNextWindowInfo(char *) {};   
+  virtual void Finalize() {}; 
+  virtual void CreateAWindow() {};
+  virtual void DestroyWindow() {};
+  
+  virtual int  GetStereoCapableWindow();  
+  
+  virtual void StereoMidpoint();  
+  virtual void StereoRenderComplete();  
+  
+  void SetSize(int a[2]); //inline  
+  void GetSize(int &w, int &h); //inline  
+      
+  void SetInteractor(vtkQtRenderWindowInteractor*);  
+  
+  virtual void mousePressEvent(QMouseEvent*);  
+  virtual void mouseReleaseEvent(QMouseEvent*);  
+  virtual void mouseMoveEvent(QMouseEvent*);  
+  virtual void keyPressEvent(QKeyEvent*);  
+  virtual void focusInEvent(QFocusEvent*);  
+  virtual void focusOutEvent(QFocusEvent*);   
+  
+  int* GetScreenSize(void) {return 0;}  
+  
+protected:  
+  ~vtkQtRenderWindow() ;  
+  void operator=(const vtkQtRenderWindow&) { }  
+  vtkQtRenderWindowInteractor* qtRenWinInt;  
+  vtkIdList *TextureResourceIds;  
+  
+#if defined(WIN32)  
+  HWND hLastWinId;  
+  HDC  hLastDC;  
+#endif  
+};  
+  
+inline void vtkQtRenderWindow::SetSize(int a[2])       { this->SetSize(a[0], a[1]); }  
+inline void vtkQtRenderWindow::GetSize(int &w, int &h) { w = Size[0]; h = Size[1]; }  
+inline void vtkQtRenderWindow::focusInEvent(QFocusEvent*)  {}  
+inline void vtkQtRenderWindow::focusOutEvent(QFocusEvent*) {}   
+  
+#endif  
