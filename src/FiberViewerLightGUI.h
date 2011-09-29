@@ -10,6 +10,7 @@
 #include <QVBoxLayout>
 #include <QGroupBox>
 #include <QFileDialog>
+#include <QApplication>
 
 #include "QVTKWidget.h"
 
