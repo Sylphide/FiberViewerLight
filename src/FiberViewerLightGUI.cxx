@@ -20,8 +20,6 @@ FiberViewerLightGUI::FiberViewerLightGUI(QWidget* parent):QWidget(parent)
 	connect(m_TB_BrowserVTKInput, SIGNAL(clicked()), this, SLOT(BrowserVTKInput()));
 	connect(m_PB_SaveVTK, SIGNAL(clicked()), this, SLOT(BrowserSaveVTK()));
 	connect(m_PB_Test, SIGNAL(clicked()), this, SLOT(LengthComputation()));
-	connect(m_SB_LowerTh, SIGNAL(editingFinished()), this, SLOT(ColorizeFiber()));
-	connect(m_SB_UpperTh, SIGNAL(editingFinished()), this, SLOT(ColorizeFiber()));
 }
 
 
@@ -52,7 +50,7 @@ void FiberViewerLightGUI::InitWidgets()
 	m_L_UpperTh=new QLabel("Upper Threshold", this);
 	m_PB_Test=new QPushButton("Length Colorization",this);
 	m_PolyData=vtkSmartPointer<vtkPolyData>::New();
-	m_Fibers=vtkSmartPointer<vtkActorCollection>::New();
+	m_ColorMap=vtkSmartPointer<vtkLookupTable>::New();
 	
 	QFrame* F_HLine=new QFrame;
 	F_HLine->setFrameShadow(QFrame::Plain);
@@ -66,7 +64,9 @@ void FiberViewerLightGUI::InitWidgets()
 	QVBoxLayout* VL_ActionPanel=new QVBoxLayout;
 	QHBoxLayout* HL_FiberLoad=new QHBoxLayout;
 	QGridLayout* GL_LengthFilter=new QGridLayout;
-
+	
+	
+	//Layout settings
 	VL_ActionPanel->addWidget(m_L_SelectFiber);
 	VL_ActionPanel->addWidget(F_HLine);
 	HL_FiberLoad->addWidget(m_LE_VTKInput);
@@ -102,13 +102,14 @@ void FiberViewerLightGUI::InitRenderer()
 	camera->SetFocalPoint(0,0,0);
 	
 	//Delete the renderer if there is already one
-	
 	if(m_VTKW_RenderWin->GetRenderWindow()->GetRenderers()->GetNumberOfItems()>0)
 	{
 		vtkRenderer* renderer;
 		renderer=m_VTKW_RenderWin->GetRenderWindow()->GetRenderers()->GetFirstRenderer();
 		m_VTKW_RenderWin->GetRenderWindow()->RemoveRenderer(renderer);
 	}
+	
+	//Create a new renderer
 	vtkRenderer* renderer=vtkRenderer::New();
 	renderer->SetActiveCamera(camera);
 	renderer->ResetCamera();
@@ -135,41 +136,6 @@ void FiberViewerLightGUI::BrowserVTKInput()
 }
 
 /********************************************************************************
- *ClearFibers: Remove all actors from m_Fibers
- ********************************************************************************/
-
-void FiberViewerLightGUI::ClearFibers()
-{
-	m_Fibers->InitTraversal();
-	while(m_Fibers->GetNumberOfItems()!=0)
-		m_Fibers->RemoveItem(m_Fibers->GetLastActor());
-}
-
-/********************************************************************************
- *InitFibers: Create one actor per fiber and store them in the vtkActorCollection
- *	called m_Fibers
- ********************************************************************************/
-
-void FiberViewerLightGUI::InitFibers()
-{
-	ClearFibers();
-	for(int i=0; i<m_PolyData->GetNumberOfCells(); i++)
-	{
-		vtkSmartPointer<vtkPolyData> Fiber(vtkPolyData::New());
-		Fiber=GetLineFromPolyData(i, m_PolyData);
-		
-		vtkPolyDataMapper* PolyDataMapper=vtkPolyDataMapper::New();
-		PolyDataMapper->SetInput(Fiber);
-			
-		vtkActor* PolyDataActor=vtkActor::New();
-		PolyDataActor->SetMapper(PolyDataMapper);
-		m_Fibers->AddItem(PolyDataActor);
-			
-		PolyDataActor->GetProperty()->SetColor(0.85,0,0);
-	}
-}
-
-/********************************************************************************
  *EnterVTKInput: If the VTK file entered is correctly loaded, initialize m_Fibers
  *	the renderer and m_Length table.
  ********************************************************************************/
@@ -180,10 +146,11 @@ void FiberViewerLightGUI::EnterVTKInput()
 	{
 		if(LoadVTK(m_LE_VTKInput->text().toStdString()))
 		{
-			InitFibers();
 			InitRenderer();
 			m_Length.clear();
 			StartRenderer(m_PolyData);
+			m_SB_LowerTh->setEnabled(false);
+			m_SB_UpperTh->setEnabled(false);
 		}
 	}
 }
@@ -231,13 +198,9 @@ void FiberViewerLightGUI::StartRenderer(vtkSmartPointer<vtkPolyData> PolyData)
 		vtkRenderer* Renderer=vtkRenderer::New();
 		Renderer=RendererList->GetFirstRenderer();
 		
-		LengthCalculation();
-		InitLengthColorMap();
 		//Set mapper's input
 		vtkPolyDataMapper* PolyDataMapper=vtkPolyDataMapper::New();
 		PolyDataMapper->SetInput(PolyData);
-		PolyDataMapper->SetScalarRange(0, m_ColorMap->GetNumberOfTableValues()-1);
-		PolyDataMapper->SetLookupTable(m_ColorMap);
 		
 		//Set actor's mapper
 		vtkActor* PolyDataActor=vtkActor::New();
@@ -266,6 +229,7 @@ void FiberViewerLightGUI::LengthCalculation()
 	vtkIdType NumberOfPoints;
 	Points=m_PolyData->GetPoints();
 	Lines=m_PolyData->GetLines();
+	
 	Lines->InitTraversal();
 	while(Lines->GetNextCell(NumberOfPoints, Ids))
 	{
@@ -278,24 +242,15 @@ void FiberViewerLightGUI::LengthCalculation()
 			x=Point2[0]-Point1[0];
 			y=Point2[1]-Point1[1];
 			z=Point2[2]-Point1[2];
+			
+			//Distance between to successive points
 			Step=sqrt(x*x+y*y+z*z);
+			
+			//Distance between first point and last calculated one.
 			FiberLength+=Step;
 		}
 		m_Length.push_back(FiberLength);
 	}
-}
-
-/********************************************************************************
- *GetActorFromFibers: Return the actor corresponding to the id fiber
- ********************************************************************************/
-
-vtkActor* FiberViewerLightGUI::GetActorFromFibers(int id)
-{
-	vtkActor* Actor=vtkActor::New();
-	m_Fibers->InitTraversal();
-	for(int i=0; i<=id; i++)
-		Actor=m_Fibers->GetNextActor();
-	return Actor;
 }
 
 /********************************************************************************
@@ -323,46 +278,46 @@ void FiberViewerLightGUI::LengthComputation()
 {
 	QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 	
-	//Erase previous renderer and initialize a new one
-	InitRenderer();
-	std::cout<<std::endl<<std::endl;
-	vtkRendererCollection* RendererList=vtkRendererCollection::New();
-	RendererList=m_VTKW_RenderWin->GetRenderWindow()->GetRenderers();
-	int NumberOfRenderer=RendererList->GetNumberOfItems();
-	if(NumberOfRenderer>0 && m_PolyData!=NULL)
+	//Get the actual renderer
+	vtkRenderer* Renderer=vtkRenderer::New();
+	Renderer=m_VTKW_RenderWin->GetRenderWindow()->GetRenderers()->GetFirstRenderer();
+	
+	if(m_PolyData!=NULL)
 	{
-		//Fill m_Length table
-		LengthCalculation();
+		double Min, Max;
+		vtkActor* Actor=vtkActor::New();
 		
-		//Set default threshold values
-		double Min=GetMinLength(), Max=GetMaxLength();
-		m_SB_UpperTh->setValue((int)ceil(Max));
-		m_SB_LowerTh->setValue((int)floor(Min));
-		m_SB_LowerTh->setEnabled(true);
-		m_SB_UpperTh->setEnabled(true);
+		if(m_Length.size()==0)
+		{
+			LengthCalculation();		//Fill m_Length table
+			InitLengthColorMap();	//Fill m_ColorMap
+			
+			//Set default threshold values
+			Min=GetMinLength();
+			Max=GetMaxLength();
+			m_SB_UpperTh->setValue((int)ceil(Max));
+			m_SB_LowerTh->setValue((int)floor(Min));
+			m_SB_LowerTh->setEnabled(true);
+			m_SB_UpperTh->setEnabled(true);
+			
+			//Set Mapper's LUT Color Map
+			Actor=Renderer->GetActors()->GetLastActor();
+			Actor->GetMapper()->SetScalarRange(0, m_ColorMap->GetNumberOfTableValues()-1);
+			Actor->GetMapper()->SetLookupTable(m_ColorMap);
+		}
 		
-		//Get the actual renderer
-		vtkRenderer* Renderer=vtkRenderer::New();
-		Renderer=RendererList->GetFirstRenderer();
+		Min=GetMinLength();
+		Max=GetMaxLength();
+		std::vector<int> ThresholdedIds=GetThresholdedIds(m_SB_LowerTh->value(),m_SB_UpperTh->value());
 		
 		//For each fiber
 		for(int i=0; i<m_PolyData->GetNumberOfCells(); i++)
-		{
-			//Get the corresponding actor
-			vtkActor* PolyDataActor=vtkActor::New();
-			PolyDataActor=GetActorFromFibers(i);
-			
-			//Add and set color of the actor
-// 			if(i==1)
-// 			{
-				Renderer->AddActor(PolyDataActor);
-				double Color[3];
-				std::cout<<m_Length[i]<<" ";
-				GetFiberColor((m_Length[i]-Min)/(Max-Min), Color);
-				PolyDataActor->GetProperty()->SetColor(Color[0], Color[1], Color[2]);
-// 			}
+		{			
+			if(IntIsIn(i,ThresholdedIds))
+				SetFiberOpacity(i, 1);	//fiber's length is inside the filter->display
+			else
+				SetFiberOpacity(i, 0);	//fiber's length is outside the filter->don't display 
 		}
-		Renderer->ResetCamera();
 		m_VTKW_RenderWin->GetRenderWindow()->Render();
 	}
 	else
@@ -384,42 +339,6 @@ bool FiberViewerLightGUI::IntIsIn(int x, std::vector<int> List)
 	}
 	return false;
 }
-
-/********************************************************************************
- *ColorizeFiber: Slot That will colorize each fibers depending on its length and
- *	threshold values
- ********************************************************************************/
-
-void FiberViewerLightGUI::ColorizeFiber()
-{
-	vtkRenderer* Renderer=m_VTKW_RenderWin->GetRenderWindow()->GetRenderers()->GetFirstRenderer();
-	std::vector<int> ThresholdedIds=GetThresholdedIds(m_SB_LowerTh->value(), m_SB_UpperTh->value());
-	double Min=GetMinLength(), Max=GetMaxLength();
-	
-	//For each fiber
-	for(int i=0; i<m_Fibers->GetNumberOfItems(); i++)
-	{
-		//Get the actor corresponding to the fiber
-		vtkActor* Actor=GetActorFromFibers(i);
-		
-		//Get and set the color depending on its length
-		double Color[3];
-		GetFiberColor((m_Length[i]-Min)/(Max-Min), Color);
-		Actor->GetProperty()->SetColor(Color[0], Color[1], Color[2]);
-		
-		//If the length is between threshold values then add the actor to the renderer
-		if(IntIsIn(i, ThresholdedIds))
-		{
-			Renderer->RemoveActor(Actor);		//To avoid multiple actor's definition
-			Renderer->AddActor(Actor);
-		}
-		//else remove it from the renderer
-		else
-			Renderer->RemoveActor(Actor);
-	}
-	m_VTKW_RenderWin->GetRenderWindow()->Render();
-}
-			
 
 /********************************************************************************
  *GetMaxLength/GetMinLength: Get Max/Min from the m_Length table
@@ -447,50 +366,41 @@ double FiberViewerLightGUI::GetMinLength()
 	return Min;
 }
 
+/********************************************************************************
+ *InitLengthColorMap: Fill m_ColorMap LUT and Scalars in m_PolyData to set 
+ *	the color map.
+ ********************************************************************************/
+
 void FiberViewerLightGUI::InitLengthColorMap()
 {
-	std::cout<<"test"<<std::endl;
 	double Min=GetMinLength(), Max=GetMaxLength();
+	
+	//There is at most one color per fiber
 	vtkLookupTable* ColorMap=vtkLookupTable::New();
-// 	ColorMap->SetTableRange(GetMinLength(), GetMaxLength());
-// 	ColorMap->SetRampToLinear();
-// 	ColorMap->Build();
 	ColorMap->SetNumberOfTableValues(m_PolyData->GetNumberOfCells());
+	
 	vtkPoints* Points=m_PolyData->GetPoints();
 	vtkCellArray* Lines=m_PolyData->GetLines();
 	vtkIdType* Ids;
 	vtkIdType NumberOfPoints;
 	vtkFloatArray* Colors=vtkFloatArray::New();
-// 	Colors->SetNumberOfComponents(4);
+	
+	//For each fiber
 	Lines->InitTraversal();
-	std::cout<<"test1"<<std::endl;
 	for(int i=0; Lines->GetNextCell(NumberOfPoints, Ids); i++)
 	{
-		std::cout<<"test2"<<std::endl;
+		//Fill Color array with R G B A (Alpha transparency)
 		double Color[4];
-// 		ColorMap->GetColor(GetMaxLength()-(m_Length[i]-GetMinLength()), Color);
-		std::cout<<m_Length[i]<<" ";
 		GetFiberColor((m_Length[i]-Min)/(Max-Min),Color);
-// 		if(i!=1)
-// 			Color[3]=0;
-// 		else
-			Color[3]=1;
-		std::cout<<"test3"<<std::endl;
+		Color[3]=1;
+		
+		//Fill the LUT
 		ColorMap->SetTableValue(i, Color);
-// 		float FColor[4];
-// 		std::cout<<m_Length[i]<<" ";
-// 		for(int k=0; k<4; k++)
-// 		{
-// 			FColor[k]=static_cast<float>(Color[k]);
-// 			std::cout<<Color[k]<<" ";
-// 		}
-		std::cout<<"test4"<<std::endl;
-		std::cout<<std::endl;
+		
+		//Fill Scalars to be inserted in the PolyData
 		for(int j=0; j<NumberOfPoints; j++)
-// 			Colors->InsertNextTupleValue(FColor);
 			Colors->InsertNextValue(i);
 	}
-	std::cout<<"test0"<<std::endl;
 	m_PolyData->GetPointData()->SetScalars(Colors);
 	m_ColorMap=ColorMap;
 }
@@ -499,7 +409,8 @@ void FiberViewerLightGUI::InitLengthColorMap()
 
 /********************************************************************************
  *GetFiberColor: Color Mapping, coef is a value between 0 and 1 and color is 
- *	the RGB results also between 0 and 1.
+ *	the RGB results also between 0 and 1. Doing a linear interpolation between
+ *	purple and red.
  ********************************************************************************/
 
 void FiberViewerLightGUI::GetFiberColor(double coef, double color[])
@@ -531,23 +442,20 @@ void FiberViewerLightGUI::GetFiberColor(double coef, double color[])
 		color[2]=255;
 	}
 	for(int i=0; i<3; i++)
-	{
 		color[i]/=255.0;
-		std::cout<<color[i]<<" ";
-	}
-	std::cout<<std::endl;
 }
 
-// void FiberViewerLightGUI::SetFiberOpacity(vtkIdType NumberOfPoints, vtkIdType* Ids, double Alpha)
-// {
-// 	for(int i=0; i<NumberOfPoints; i++)
-// 	{
-// 		double Color[4];
-// 		m_ColorMap->GetTableValue(Ids[i], Color);
-// 		Color[3]=Alpha;
-// 		m_ColorMap->SetTableValue(Ids[i], Color);
-// 	}
-// }
+/********************************************************************************
+ *SetFiberOpacity: Display or not a fiber by turning 0 or 1 the alpha transparency
+ ********************************************************************************/
+
+void FiberViewerLightGUI::SetFiberOpacity(vtkIdType Id, double Alpha)
+{
+	double Color[4];
+	m_ColorMap->GetTableValue(Id, Color);
+	Color[3]=Alpha;
+	m_ColorMap->SetTableValue(Id, Color);
+}
 	
 
 /********************************************************************************

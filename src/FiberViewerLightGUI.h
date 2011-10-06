@@ -39,7 +39,7 @@ class FiberViewerLightGUI: public QWidget
 		FiberViewerLightGUI(QWidget* parent=0);
 		void InitWidgets();
 		void InitRenderer();
-		void InitFibers();
+		void InitLengthColorMap();
 		void StartRenderer(vtkSmartPointer<vtkPolyData> PolyData);
 		bool LoadVTK(std::string FileName);
 		vtkSmartPointer<vtkPolyData> GetLineFromPolyData(int id, vtkSmartPointer<vtkPolyData> PolyData);
@@ -47,18 +47,15 @@ class FiberViewerLightGUI: public QWidget
 		void LengthCalculation();
 		double GetMaxLength();
 		double GetMinLength();
-		vtkActor* GetActorFromFibers(int id);
 		std::vector<int> GetThresholdedIds(int LowerTh, int UpperTh);
 		bool IntIsIn(int x, std::vector<int> List);
-		void ClearFibers();
-		void InitLengthColorMap();
+		void SetFiberOpacity(vtkIdType Id, double Alpha);
 		
 	protected slots:
 		void BrowserVTKInput();
 		void EnterVTKInput();
 		void BrowserSaveVTK();
 		void LengthComputation();
-		void ColorizeFiber();
 		
 	private:
 		QLineEdit* m_LE_VTKInput;
@@ -73,7 +70,6 @@ class FiberViewerLightGUI: public QWidget
 		QVTKWidget* m_VTKW_RenderWin;
 		vtkSmartPointer<vtkPolyData> m_PolyData;
 		vtkSmartPointer<vtkPolyData> m_ModifiedPolyData;
-		vtkSmartPointer<vtkActorCollection> m_Fibers;
 		vtkSmartPointer<vtkLookupTable> m_ColorMap;
 		std::vector<double> m_Length;
 		std::string m_VtkFileName;
