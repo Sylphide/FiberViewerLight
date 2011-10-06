@@ -8,9 +8,11 @@
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QApplication>
+#include <QSpinBox>
 
 #include "QVTKWidget.h"
 
@@ -23,6 +25,9 @@
 #include <vtkActor.h>
 #include <vtkPolyDataReader.h>
 #include <vtkRendererCollection.h>
+#include <vtkProperty.h>
+#include <vtkPolyLine.h>
+#include <vtkLookupTable.h>
 
 
 
@@ -34,19 +39,44 @@ class FiberViewerLightGUI: public QWidget
 		FiberViewerLightGUI(QWidget* parent=0);
 		void InitWidgets();
 		void InitRenderer();
-		void Render(vtkSmartPointer<vtkPolyData> PolyData);
+		void InitFibers();
+		void StartRenderer(vtkSmartPointer<vtkPolyData> PolyData);
 		bool LoadVTK(std::string FileName);
+		vtkSmartPointer<vtkPolyData> GetLineFromPolyData(int id, vtkSmartPointer<vtkPolyData> PolyData);
+		void GetFiberColor(double coef, double color[]);
+		void LengthCalculation();
+		double GetMaxLength();
+		double GetMinLength();
+		vtkActor* GetActorFromFibers(int id);
+		std::vector<int> GetThresholdedIds(int LowerTh, int UpperTh);
+		bool IntIsIn(int x, std::vector<int> List);
+		void ClearFibers();
+		void InitLengthColorMap();
 		
 	protected slots:
 		void BrowserVTKInput();
 		void EnterVTKInput();
+		void BrowserSaveVTK();
+		void LengthComputation();
+		void ColorizeFiber();
 		
 	private:
 		QLineEdit* m_LE_VTKInput;
 		QToolButton* m_TB_BrowserVTKInput;
 		QLabel* m_L_SelectFiber;
+		QPushButton* m_PB_SaveVTK;
+		QSpinBox* m_SB_LowerTh;
+		QSpinBox* m_SB_UpperTh;
+		QLabel* m_L_LowerTh;
+		QLabel* m_L_UpperTh;
+		QPushButton* m_PB_Test;
 		QVTKWidget* m_VTKW_RenderWin;
 		vtkSmartPointer<vtkPolyData> m_PolyData;
+		vtkSmartPointer<vtkPolyData> m_ModifiedPolyData;
+		vtkSmartPointer<vtkActorCollection> m_Fibers;
+		vtkSmartPointer<vtkLookupTable> m_ColorMap;
+		std::vector<double> m_Length;
+		std::string m_VtkFileName;
 };
 
 #endif
