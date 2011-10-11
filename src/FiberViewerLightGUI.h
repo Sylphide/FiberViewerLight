@@ -24,10 +24,14 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkActor.h>
 #include <vtkPolyDataReader.h>
+#include <vtkPolyDataWriter.h>
 #include <vtkRendererCollection.h>
 #include <vtkProperty.h>
 #include <vtkPolyLine.h>
 #include <vtkLookupTable.h>
+
+#include "FiberDisplay.h"
+#include "FVLengthGUI.h"
 
 
 
@@ -38,41 +42,27 @@ class FiberViewerLightGUI: public QWidget
 	public:
 		FiberViewerLightGUI(QWidget* parent=0);
 		void InitWidgets();
-		void InitRenderer();
-		void InitLengthColorMap();
-		void StartRenderer(vtkSmartPointer<vtkPolyData> PolyData);
-		bool LoadVTK(std::string FileName);
-		vtkSmartPointer<vtkPolyData> GetLineFromPolyData(int id, vtkSmartPointer<vtkPolyData> PolyData);
-		void GetFiberColor(double coef, double color[]);
-		void LengthCalculation();
-		double GetMaxLength();
-		double GetMinLength();
-		std::vector<int> GetThresholdedIds(int LowerTh, int UpperTh);
-		bool IntIsIn(int x, std::vector<int> List);
-		void SetFiberOpacity(vtkIdType Id, double Alpha);
+		vtkSmartPointer<vtkPolyData> LoadVTK(std::string FileName);
+		
 		
 	protected slots:
 		void BrowserVTKInput();
 		void EnterVTKInput();
 		void BrowserSaveVTK();
-		void LengthComputation();
+		void OpenLengthPanel();
+		void CloseLengthPanel();
 		
 	private:
+		QGroupBox* m_GB_ActionPanel;
 		QLineEdit* m_LE_VTKInput;
 		QToolButton* m_TB_BrowserVTKInput;
 		QLabel* m_L_SelectFiber;
 		QPushButton* m_PB_SaveVTK;
-		QSpinBox* m_SB_LowerTh;
-		QSpinBox* m_SB_UpperTh;
-		QLabel* m_L_LowerTh;
-		QLabel* m_L_UpperTh;
-		QPushButton* m_PB_Test;
-		QVTKWidget* m_VTKW_RenderWin;
-		vtkSmartPointer<vtkPolyData> m_PolyData;
-		vtkSmartPointer<vtkPolyData> m_ModifiedPolyData;
-		vtkSmartPointer<vtkLookupTable> m_ColorMap;
-		std::vector<double> m_Length;
+		QPushButton* m_PB_Length;
 		std::string m_VtkFileName;
+		
+		FVLengthGUI* m_LengthGUI;
+		FiberDisplay* m_Display;
 };
 
 #endif
