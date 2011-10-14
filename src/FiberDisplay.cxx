@@ -4,7 +4,7 @@ FiberDisplay::FiberDisplay(QWidget* parent) : QWidget(parent)
 {
 	m_OriginalPolyData=vtkSmartPointer<vtkPolyData>::New();
 	m_ModifiedPolyData=vtkSmartPointer<vtkPolyData>::New();
-	m_ColorMap=vtkSmartPointer<vtkLookupTable>::New();
+	
 	m_VTKW_RenderWin=new QVTKWidget;
 	m_VTKW_RenderWin->setMinimumSize(300,300);
 	
@@ -43,9 +43,11 @@ void FiberDisplay::InitRenderer()
 	m_VTKW_RenderWin->GetRenderWindow()->Render();
 }
 
-vtkRenderer* FiberDisplay::GetRenderer()
+void FiberDisplay::InitAlphas()
 {
-		return m_VTKW_RenderWin->GetRenderWindow()->GetRenderers()->GetFirstRenderer();
+	m_Alphas.push_back(std::vector<int>());
+	for(int i=0; i<m_ModifiedPolyData->GetNumberOfCells(); i++)
+		m_Alphas[0].push_back(1);
 }
 
 vtkPolyData* FiberDisplay::GetOriginalPolyData()
@@ -53,19 +55,14 @@ vtkPolyData* FiberDisplay::GetOriginalPolyData()
 	return m_OriginalPolyData;
 }
 
-void FiberDisplay::SetOriginalPolyData(vtkPolyData* PolyData)
-{
-	m_OriginalPolyData=PolyData;
-}
-
-void FiberDisplay::SetModifiedPolyData(vtkPolyData* PolyData)
-{
-	m_ModifiedPolyData=PolyData;
-}
-
 vtkPolyData* FiberDisplay::GetModifiedPolyData()
 {
 	return m_ModifiedPolyData;
+}
+
+vtkRenderer* FiberDisplay::GetRenderer()
+{
+		return m_VTKW_RenderWin->GetRenderWindow()->GetRenderers()->GetFirstRenderer();
 }
 
 vtkActor* FiberDisplay::GetActor()
@@ -73,43 +70,9 @@ vtkActor* FiberDisplay::GetActor()
 	return GetRenderer()->GetActors()->GetLastActor();
 }
 
-void FiberDisplay::Render()
+std::vector<int> FiberDisplay::GetLastAlpha()
 {
-	m_VTKW_RenderWin->GetRenderWindow()->Render();
-}
-
-/********************************************************************************
- *StarRenderer: First render of a polydata. There is just one actor for the whole
- *	fiber
- ********************************************************************************/
-
-void FiberDisplay::StartRenderer(vtkPolyData* PolyData)
-{
-	//Copy PolyData in Original in case of step back
-	m_OriginalPolyData->DeepCopy(PolyData);
-	m_ModifiedPolyData=PolyData;
-
-	//Get actual renderer
-	vtkRenderer* Renderer=vtkRenderer::New();
-	Renderer=GetRenderer();
-	if(Renderer!=NULL)
-	{
-		//Set mapper's input
-		vtkPolyDataMapper* PolyDataMapper=vtkPolyDataMapper::New();
-		PolyDataMapper->SetInput(m_ModifiedPolyData);
-		
-		//Set actor's mapper
-		vtkActor* PolyDataActor=vtkActor::New();
-		PolyDataActor->SetMapper(PolyDataMapper);
-		
-		//Add actor and set actor's color
-		Renderer->AddActor(PolyDataActor);	
-		PolyDataActor->GetProperty()->SetColor(0.85,0,0);
-		Renderer->ResetCamera();
-		Render();
-	}
-	else
-		std::cout<<"No Renderer in the Render Window."<<std::endl;
+	return m_Alphas[m_Alphas.size()-1];
 }
 
 /********************************************************************************
@@ -149,3 +112,96 @@ void FiberDisplay::GetFiberColor(double coef, double color[])
 	for(int i=0; i<3; i++)
 		color[i]/=255.0;
 }
+
+void FiberDisplay::SetOriginalPolyData(vtkPolyData* PolyData)
+{
+	m_OriginalPolyData=PolyData;
+}
+
+void FiberDisplay::SetModifiedPolyData(vtkPolyData* PolyData)
+{
+	m_ModifiedPolyData=PolyData;
+}
+
+	//Set Mapper's LUT Color Map
+void FiberDisplay::SetLookupTable(vtkLookupTable* Map)
+{
+	GetActor()->GetMapper()->SetLookupTable(Map);
+}
+
+void FiberDisplay::SetLastAlpha(std::vector<int> Alpha)
+{
+	m_Alphas[m_Alphas.size()-1]=Alpha;
+}
+
+
+void FiberDisplay::PushBackAlpha(std::vector<int> Alpha)
+{
+	m_Alphas.push_back(Alpha);
+}
+
+void FiberDisplay::PopBackAlpha()
+{
+	if(m_Alphas.size()>1)
+		m_Alphas.pop_back();
+}
+
+/********************************************************************************
+ *StarRenderer: First render of a polydata. There is just one actor for the whole
+ *	fiber
+ ********************************************************************************/
+
+void FiberDisplay::StartRenderer(vtkPolyData* PolyData)
+{
+	//Copy PolyData in Original in case of step back
+	m_OriginalPolyData->DeepCopy(PolyData);
+	m_ModifiedPolyData=PolyData;
+	InitAlphas();
+	
+	//Get actual renderer
+	vtkRenderer* Renderer=vtkRenderer::New();
+	Renderer=GetRenderer();
+	if(Renderer!=NULL)
+	{
+		//Set mapper's input
+		vtkPolyDataMapper* PolyDataMapper=vtkPolyDataMapper::New();
+		PolyDataMapper->SetInput(m_ModifiedPolyData);
+		
+		//Set actor's mapper
+		vtkActor* PolyDataActor=vtkActor::New();
+		PolyDataActor->SetMapper(PolyDataMapper);
+		
+		//Add actor and set actor's color
+		Renderer->AddActor(PolyDataActor);	
+		Renderer->ResetCamera();
+		Render();
+	}
+	else
+		std::cout<<"No Renderer in the Render Window."<<std::endl;
+}
+
+void FiberDisplay::Render()
+{
+	m_VTKW_RenderWin->GetRenderWindow()->Render();
+}
+
+void FiberDisplay::DuplicateLastAlpha()
+{
+	std::vector<int> LastElement;
+	for(unsigned int i=0; i<m_Alphas[m_Alphas.size()-1].size(); i++)
+		LastElement.push_back(m_Alphas[m_Alphas.size()-1][i]);
+	m_Alphas.push_back(LastElement);
+}
+
+void FiberDisplay::UpdateCells()
+{
+	m_ModifiedPolyData->DeepCopy(m_OriginalPolyData);
+	m_ModifiedPolyData->BuildLinks();
+	for(int i=0; i<m_ModifiedPolyData->GetNumberOfCells(); i++)
+	{
+		if(m_Alphas[m_Alphas.size()-1][i]==0)
+			m_ModifiedPolyData->DeleteCell(i);
+	}
+	m_ModifiedPolyData->RemoveDeletedCells();
+}
+	

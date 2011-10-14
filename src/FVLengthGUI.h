@@ -23,6 +23,7 @@
 #include "vtkFloatArray.h"
 #include "vtkPointData.h"
 #include "vtkPoints.h"
+#include <vtkPolyDataWriter.h>
 
 #include "FiberDisplay.h"
 
@@ -38,17 +39,18 @@ class FVLengthGUI : public QWidget
 		double GetMaxLength();
 		double GetMinLength();
 		void InitLengthColorMap();
-		void SetFiberOpacity(vtkIdType Id, double Alpha);
-		void SetDisplay(FiberDisplay* Display);
+		void SetFiberOpacity(vtkIdType Id, int Alpha);
 		
 	protected slots:
 		void LengthComputation();
-		void PreviousAction();
+		void UndoAction();
+		void OkAction();
 		
 	signals:
-		void PreviousClicked();
+		void ExitLength();
 		
 	private:
+		bool firstUse;
 		QSpinBox* m_SB_NbBars;
 		QLabel* m_L_NbBars;
 		QSpinBox* m_SB_LowerTh;
@@ -56,7 +58,8 @@ class FVLengthGUI : public QWidget
 		QLabel* m_L_LowerTh;
 		QLabel* m_L_UpperTh;
 		QPushButton* m_PB_LengthComputation;
-		QPushButton* m_PB_Previous;
+		QPushButton* m_PB_Undo;
+		QPushButton* m_PB_Ok;
 		std::vector<double> m_Length;
 		vtkSmartPointer<vtkLookupTable> m_ColorMap;
 		FiberDisplay* m_Display;

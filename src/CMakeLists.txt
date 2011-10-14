@@ -53,10 +53,10 @@ INCLUDE_DIRECTORIES(
   ${FVLight_SOURCE_DIR}
 )
 
-QT4_WRAP_CPP(MOC_FILES FiberViewerLightGUI.h FVLengthGUI.h)
+QT4_WRAP_CPP(MOC_FILES FiberViewerLightGUI.h FVLengthGUI.h FVGlobalGUI.h)
 
-SET(FVLight_source FiberViewerLight.cxx FiberViewerLightGUI.cxx FiberDisplay.cxx FVLengthGUI.cxx ${MOC_FILES})
-SET(FVLight_header FiberViewerLightGUI.h FiberDisplay.h FVLengthGUI.h)
+SET(FVLight_source FiberViewerLight.cxx FiberViewerLightGUI.cxx FiberDisplay.cxx FVLengthGUI.cxx FVGlobalGUI.cxx ${MOC_FILES})
+SET(FVLight_header FiberViewerLightGUI.h FiberDisplay.h FVLengthGUI.h FVGlobalGUI.h)
 
 # GENERATECLP(FiberViewerLight.cxx FiberViewerLight.xml)
 add_executable( FiberViewerLight ${FVLight_source} ${FVLight_header})

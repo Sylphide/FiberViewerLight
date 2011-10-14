@@ -20,6 +20,7 @@ FVLengthGUI::FVLengthGUI(QWidget* parent, FiberDisplay* Display) : QWidget(paren
 	m_HistPlot->setCanvasBackground(Qt::white);
 	m_HistPlot->replot();
 	
+	firstUse=true;
 	m_SB_NbBars=new QSpinBox(this);
 	m_SB_NbBars->setSingleStep(1);
 	m_SB_NbBars->setRange(0,1000);
@@ -36,7 +37,8 @@ FVLengthGUI::FVLengthGUI(QWidget* parent, FiberDisplay* Display) : QWidget(paren
 	m_L_LowerTh=new QLabel("Lower Threshold", this);
 	m_L_UpperTh=new QLabel("Upper Threshold", this);
 	m_PB_LengthComputation=new QPushButton("Length Computation",this);
-	m_PB_Previous=new QPushButton("Previous",this);
+	m_PB_Undo=new QPushButton("Undo",this);
+	m_PB_Ok=new QPushButton("Ok",this);
 	
 	QGroupBox* GB_LengthFilter=new QGroupBox("Length");
 	GB_LengthFilter->setFixedSize(300,450);
@@ -51,7 +53,8 @@ FVLengthGUI::FVLengthGUI(QWidget* parent, FiberDisplay* Display) : QWidget(paren
 	GL_LengthFilter->addWidget(m_L_UpperTh, 2, 1);
 	GL_LengthFilter->addWidget(m_SB_UpperTh, 3, 1);
 	GL_LengthFilter->addWidget(m_PB_LengthComputation,4,0,1,0);
-	GL_LengthFilter->addWidget(m_PB_Previous,5,0,1,0);
+	GL_LengthFilter->addWidget(m_PB_Undo,5,0);
+	GL_LengthFilter->addWidget(m_PB_Ok,5,1);
 	GL_LengthFilter->setRowStretch(6,1);
 	GB_LengthFilter->setLayout(GL_LengthFilter);
 	MainLayout->addWidget(GB_LengthFilter);
@@ -59,12 +62,8 @@ FVLengthGUI::FVLengthGUI(QWidget* parent, FiberDisplay* Display) : QWidget(paren
 	setLayout(MainLayout);
 	
 	connect(m_PB_LengthComputation, SIGNAL(clicked()), this, SLOT(LengthComputation()));
-	connect(m_PB_Previous, SIGNAL(clicked()), this, SLOT(PreviousAction()));
-}
-
-void FVLengthGUI::SetDisplay(FiberDisplay* Display)
-{
-	m_Display=Display;
+	connect(m_PB_Undo, SIGNAL(clicked()), this, SLOT(UndoAction()));
+	connect(m_PB_Ok, SIGNAL(clicked()), this, SLOT(OkAction()));
 }
 
 /********************************************************************************
@@ -129,34 +128,37 @@ std::vector<int> FVLengthGUI::GetThresholdedIds(int LowerTh, int UpperTh)
 void FVLengthGUI::LengthComputation()
 {
 	QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+	std::cout<<"Length computation..."<<std::endl;
 	
 	//Get the actual renderer
 	vtkRenderer* Renderer=vtkRenderer::New();
 	Renderer=m_Display->GetRenderer();
 	
 	vtkSmartPointer<vtkPolyData> PolyData;
-	PolyData=m_Display->GetModifiedPolyData();
+	PolyData=m_Display->GetOriginalPolyData();
 	if(PolyData!=NULL)
 	{
 		double Min, Max;
 		vtkActor* Actor=vtkActor::New();
-		
-		if(m_Length.size()==0)
+		if(firstUse)
 		{
-			LengthCalculation();		//Fill m_Length table
-			InitLengthColorMap();	//Fill m_ColorMap
-			
-			//Set default threshold values
-			Min=GetMinLength();
-			Max=GetMaxLength();
-			m_SB_UpperTh->setValue((int)ceil(Max));
-			m_SB_LowerTh->setValue((int)floor(Min));
+			if(m_Length.size()==0)
+			{
+				LengthCalculation();		//Fill m_Length table
+				InitLengthColorMap();	//Fill m_ColorMap
+				
+				//Set default threshold values
+				m_SB_UpperTh->setValue((int)ceil(GetMaxLength()));
+				m_SB_LowerTh->setValue((int)floor(GetMinLength()));
+			}
+			firstUse=false;
 			m_SB_LowerTh->setEnabled(true);
 			m_SB_UpperTh->setEnabled(true);
 			
+			m_Display->DuplicateLastAlpha();
+			
 			//Set Mapper's LUT Color Map
 			Actor=m_Display->GetActor();
-			Actor->GetMapper()->SetScalarRange(0, m_ColorMap->GetNumberOfTableValues()-1);
 			Actor->GetMapper()->SetLookupTable(m_ColorMap);
 		}
 		
@@ -166,12 +168,13 @@ void FVLengthGUI::LengthComputation()
 		
 		//For each fiber
 		for(int i=0; i<PolyData->GetNumberOfCells(); i++)
-		{			
+		{
 			if(IntIsIn(i,ThresholdedIds))
 				SetFiberOpacity(i, 1);	//fiber's length is inside the filter->display
 			else
 				SetFiberOpacity(i, 0);	//fiber's length is outside the filter->don't display 
 		}
+		m_Display->UpdateCells();
 		m_Display->Render();
 		
 		QwtIntervalSeriesData* HistData=new QwtIntervalSeriesData;
@@ -183,7 +186,7 @@ void FVLengthGUI::LengthComputation()
 		{
 			for(int j=0; j<PolyData->GetNumberOfCells(); j++)
 			{
-				if(m_Length[j]>=IntervalMin && m_Length[j]<IntervalMax)
+				if(m_Length[j]>=IntervalMin && m_Length[j]<IntervalMax && m_Display->GetLastAlpha()[j]==1)
 					NbFiber++;
 			}
 			Samples.push_back(QwtIntervalSample(NbFiber,IntervalMin,IntervalMax));
@@ -198,6 +201,7 @@ void FVLengthGUI::LengthComputation()
 	else
 		std::cout<<"No Renderer in the Render Window."<<std::endl;
 	
+	std::cout<<"End of Length Computation."<<std::endl;
 	QApplication::restoreOverrideCursor();	
 }
 
@@ -255,17 +259,9 @@ void FVLengthGUI::InitLengthColorMap()
 	
 	//There is at most one color per fiber
 	vtkLookupTable* ColorMap=vtkLookupTable::New();
-	ColorMap->SetNumberOfTableValues(PolyData->GetNumberOfCells());
+	ColorMap->SetNumberOfTableValues(PolyData->GetNumberOfCells());	
 	
-	vtkPoints* Points=PolyData->GetPoints();
-	vtkCellArray* Lines=PolyData->GetLines();
-	vtkIdType* Ids;
-	vtkIdType NumberOfPoints;
-	vtkFloatArray* Colors=vtkFloatArray::New();
-	
-	//For each fiber
-	Lines->InitTraversal();
-	for(int i=0; Lines->GetNextCell(NumberOfPoints, Ids); i++)
+	for(int i=0; i<PolyData->GetNumberOfCells(); i++)
 	{
 		//Fill Color array with R G B A (Alpha transparency)
 		double Color[4];
@@ -274,13 +270,7 @@ void FVLengthGUI::InitLengthColorMap()
 		
 		//Fill the LUT
 		ColorMap->SetTableValue(i, Color);
-		
-		//Fill Scalars to be inserted in the PolyData
-		for(int j=0; j<NumberOfPoints; j++)
-			Colors->InsertNextValue(i);
 	}
-	PolyData->GetPointData()->SetScalars(Colors);
-	m_Display->SetModifiedPolyData(PolyData);
 	m_ColorMap=ColorMap;
 }
 
@@ -288,22 +278,29 @@ void FVLengthGUI::InitLengthColorMap()
  *SetFiberOpacity: Display or not a fiber by turning 0 or 1 the alpha transparency
  ********************************************************************************/
 
-void FVLengthGUI::SetFiberOpacity(vtkIdType Id, double Alpha)
+void FVLengthGUI::SetFiberOpacity(vtkIdType Id, int a)
 {
-	double Color[4];
-	m_ColorMap->GetTableValue(Id, Color);
-	Color[3]=Alpha;
-	m_ColorMap->SetTableValue(Id, Color);
+	std::vector<int> Alpha=m_Display->GetLastAlpha();
+	Alpha[Id]=a;
+	m_Display->SetLastAlpha(Alpha);
 }
 
-void FVLengthGUI::PreviousAction()
+/********************************************************************************
+ *UndoAction: Undo last modification on the polydata.
+ ********************************************************************************/
+
+void FVLengthGUI::UndoAction()
 {
-	m_Length.clear();
-	m_SB_LowerTh->setEnabled(false);
-	m_SB_UpperTh->setEnabled(false);
-	m_Display->InitRenderer();
-	vtkSmartPointer<vtkPolyData> PolyData=vtkSmartPointer<vtkPolyData>::New();;
-	PolyData->DeepCopy(m_Display->GetOriginalPolyData());
-	m_Display->StartRenderer(PolyData);
-	emit PreviousClicked();
+	firstUse=true;
+	m_Display->PopBackAlpha();
+	emit ExitLength();
 }
+
+void FVLengthGUI::OkAction()
+{
+	firstUse=true;
+	emit ExitLength();
+}
+	
+
+//Fonction de reset des membres appele dans load vtk
