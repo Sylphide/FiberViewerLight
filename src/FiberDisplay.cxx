@@ -1,12 +1,15 @@
 #include "FiberDisplay.h"
+#include "FiberViewerLightGUI.h"
 
 FiberDisplay::FiberDisplay(QWidget* parent) : QWidget(parent)
 {
 	m_OriginalPolyData=vtkSmartPointer<vtkPolyData>::New();
 	m_ModifiedPolyData=vtkSmartPointer<vtkPolyData>::New();
+	iren=QVTKInteractor::New();
+	m_Plane=vtkImplicitPlaneWidget::New();
 	
 	m_VTKW_RenderWin=new QVTKWidget;
-	m_VTKW_RenderWin->setMinimumSize(300,300);
+	m_VTKW_RenderWin->setMinimumSize(300,527);
 	
 	QGridLayout* MainLayout=new QGridLayout;
 	MainLayout->addWidget(m_VTKW_RenderWin);
@@ -40,14 +43,32 @@ void FiberDisplay::InitRenderer()
 	renderer->SetBackground(0.6,0.6,0.6);
 	
 	m_VTKW_RenderWin->GetRenderWindow()->AddRenderer(renderer);
+	iren->SetRenderWindow(m_VTKW_RenderWin->GetRenderWindow());
+	vtkInteractorStyleSwitch* style=vtkInteractorStyleSwitch::New();
+	style->SetCurrentStyleToTrackballCamera();
+	iren->SetInteractorStyle(style);
 	m_VTKW_RenderWin->GetRenderWindow()->Render();
 }
 
 void FiberDisplay::InitAlphas()
 {
-	m_Alphas.push_back(std::vector<int>());
-	for(int i=0; i<m_ModifiedPolyData->GetNumberOfCells(); i++)
-		m_Alphas[0].push_back(1);
+	m_PreviousAlphas.push_back(std::vector<int>());
+	for(int i=0; i<m_OriginalPolyData->GetNumberOfCells(); i++)
+		m_PreviousAlphas[0].push_back(1);
+}
+
+bool FiberDisplay::IsUnchanged()
+{
+	if(m_PreviousAlphas.size()>1)
+	{
+		for(int i=0; i<m_OriginalPolyData->GetNumberOfCells(); i++)
+		{
+			if(m_PreviousAlphas[m_PreviousAlphas.size()-1][i]!=m_PreviousAlphas[m_PreviousAlphas.size()-2][i])
+				return false;
+		}
+	}
+	PopBackAlpha(FiberDisplay::Previous);
+	return true;
 }
 
 vtkPolyData* FiberDisplay::GetOriginalPolyData()
@@ -67,14 +88,30 @@ vtkRenderer* FiberDisplay::GetRenderer()
 
 vtkActor* FiberDisplay::GetActor()
 {
-	return GetRenderer()->GetActors()->GetLastActor();
+	vtkActorCollection* Collection=GetRenderer()->GetActors();
+	Collection->InitTraversal();
+	return Collection->GetNextActor();
 }
 
-std::vector<int> FiberDisplay::GetLastAlpha()
+std::vector<int> FiberDisplay::GetLastAlpha(AlphasType Type)
 {
-	return m_Alphas[m_Alphas.size()-1];
+	if(Type==FiberDisplay::Next)
+		return m_NextAlphas[m_NextAlphas.size()-1];
+	else if(Type==FiberDisplay::Previous)
+		return m_PreviousAlphas[m_PreviousAlphas.size()-1];
+	else
+		return std::vector<int>();
 }
 
+int FiberDisplay::GetAlphasSize(AlphasType Type)
+{
+	if(Type==FiberDisplay::Next)
+		return m_NextAlphas.size();
+	else if(Type==FiberDisplay::Previous)
+		return m_PreviousAlphas.size();
+	else
+		return 0;
+}
 /********************************************************************************
  *GetFiberColor: Color Mapping, coef is a value between 0 and 1 and color is 
  *	the RGB results also between 0 and 1. Doing a linear interpolation between
@@ -83,31 +120,32 @@ std::vector<int> FiberDisplay::GetLastAlpha()
 
 void FiberDisplay::GetFiberColor(double coef, double color[])
 {
-	coef=(1-coef)*897.0;
+	coef=(1-coef)*1020.0;
+	double contrast=0.9;
 	
 	if(coef<256)
 	{
-		color[0]=255; 
-		color[1]=int(coef); 
+		color[0]=(int)(255*contrast); 
+		color[1]=(int)(int(coef)*contrast); 
 		color[2]=0;
 	}
-	else if(coef>=256 && coef<512)
+	else if(coef>=256 && coef<510)
 	{
-		color[0]=255-int(coef)%255;
-		color[1]=255;
+		color[0]=(int)((255-int(coef)%255)*contrast);
+		color[1]=(int)(255*contrast);
 		color[2]=0;
 	}
-	else if(coef>=512 && coef<641)
+	else if(coef>=510 && coef<764)
 	{
 		color[0]=0;
-		color[1]=255;
-		color[2]=int(coef)%255;
+		color[1]=(int)(255*contrast);
+		color[2]=(int)((int(coef)%255+1)*contrast);
 	}
-	else if(coef>=641)
+	else if(coef>=764 && coef<1021)
 	{
-		color[0]=int(coef)%255;
-		color[1]=0;
-		color[2]=255;
+		color[0]=0;
+		color[1]=(int)((255-int(coef)%255)*contrast);
+		color[2]=(int)(255*contrast);
 	}
 	for(int i=0; i<3; i++)
 		color[i]/=255.0;
@@ -129,27 +167,73 @@ void FiberDisplay::SetLookupTable(vtkLookupTable* Map)
 	GetActor()->GetMapper()->SetLookupTable(Map);
 }
 
-void FiberDisplay::SetLastAlpha(std::vector<int> Alpha)
+void FiberDisplay::SetLastAlpha(std::vector<int> Alpha, AlphasType Type)
 {
-	m_Alphas[m_Alphas.size()-1]=Alpha;
+	if(Type==FiberDisplay::Next)
+		m_NextAlphas[m_NextAlphas.size()-1]=Alpha;
+	else if(Type==FiberDisplay::Previous)
+		m_PreviousAlphas[m_PreviousAlphas.size()-1]=Alpha;	
 }
 
 
-void FiberDisplay::PushBackAlpha(std::vector<int> Alpha)
+void FiberDisplay::PushBackAlpha(std::vector<int> Alpha, AlphasType Type)
 {
-	m_Alphas.push_back(Alpha);
+	if(Type==FiberDisplay::Next)
+		m_NextAlphas.push_back(Alpha);
+	else if(Type==FiberDisplay::Previous)
+		m_PreviousAlphas.push_back(Alpha);
 }
 
-void FiberDisplay::PopBackAlpha()
+void FiberDisplay::PopBackAlpha(AlphasType Type)
 {
-	if(m_Alphas.size()>1)
-		m_Alphas.pop_back();
+	if(Type==FiberDisplay::Next)
+		m_NextAlphas.pop_back();
+	else if(m_PreviousAlphas.size()>1 && Type==FiberDisplay::Previous)
+		m_PreviousAlphas.pop_back();
+}
+
+void FiberDisplay::ClearAlphas(AlphasType Type)
+{
+	if(Type==FiberDisplay::Next)
+		m_NextAlphas.clear();
+	else if(Type==FiberDisplay::Previous)
+		m_PreviousAlphas.clear();
 }
 
 /********************************************************************************
  *StarRenderer: First render of a polydata. There is just one actor for the whole
  *	fiber
  ********************************************************************************/
+
+void FiberDisplay::InitPlaneCoord(double Bounds[])
+{
+	vtkPoints* Points=m_ModifiedPolyData->GetPoints();
+	double MinY=10000, MaxY=-10000, MinZ=10000, MaxZ=-10000, MinX=10000, MaxX=-10000;
+	for(int i=0; i<m_ModifiedPolyData->GetNumberOfPoints(); i++)
+	{
+		double Point[3];
+		Points->GetPoint(i,Point);
+		if(Point[0]<MinX)
+			MinX=Point[0];
+		if(Point[0]>MaxX)
+			MaxX=Point[0];
+		if(Point[1]<MinY)
+			MinY=Point[1];
+		if(Point[1]>MaxY)
+			MaxY=Point[1];
+		if(Point[2]<MinZ)
+			MinZ=Point[2];
+		if(Point[2]>MaxZ)
+			MaxZ=Point[2];
+	}
+	Bounds[0]=MinX;
+	Bounds[1]=MaxX;
+	Bounds[2]=MinY;
+	Bounds[3]=MaxY;
+	Bounds[4]=MinZ;
+	Bounds[5]=MaxZ;
+}
+		
 
 void FiberDisplay::StartRenderer(vtkPolyData* PolyData)
 {
@@ -163,6 +247,10 @@ void FiberDisplay::StartRenderer(vtkPolyData* PolyData)
 	Renderer=GetRenderer();
 	if(Renderer!=NULL)
 	{
+		double Bounds[6];
+		InitPlaneCoord(Bounds);
+		InitPlan(Bounds);
+		
 		//Set mapper's input
 		vtkPolyDataMapper* PolyDataMapper=vtkPolyDataMapper::New();
 		PolyDataMapper->SetInput(m_ModifiedPolyData);
@@ -185,23 +273,64 @@ void FiberDisplay::Render()
 	m_VTKW_RenderWin->GetRenderWindow()->Render();
 }
 
-void FiberDisplay::DuplicateLastAlpha()
-{
-	std::vector<int> LastElement;
-	for(unsigned int i=0; i<m_Alphas[m_Alphas.size()-1].size(); i++)
-		LastElement.push_back(m_Alphas[m_Alphas.size()-1][i]);
-	m_Alphas.push_back(LastElement);
-}
-
 void FiberDisplay::UpdateCells()
 {
-	m_ModifiedPolyData->DeepCopy(m_OriginalPolyData);
-	m_ModifiedPolyData->BuildLinks();
-	for(int i=0; i<m_ModifiedPolyData->GetNumberOfCells(); i++)
+	vtkSmartPointer<vtkPolyData> ModifiedPolyData=vtkSmartPointer<vtkPolyData>::New();
+	vtkFloatArray* NewScalars=vtkFloatArray::New();
+	vtkFloatArray* NewTensors=vtkFloatArray::New();
+	NewTensors->SetNumberOfComponents(9);
+	vtkDataArray* Scalars=m_OriginalPolyData->GetPointData()->GetScalars();
+	vtkDataArray* Tensors=m_OriginalPolyData->GetPointData()->GetTensors();
+	vtkPoints* NewPoints=vtkPoints::New();
+	vtkCellArray* NewLines=vtkCellArray::New();
+	vtkPoints* Points=m_OriginalPolyData->GetPoints();
+	vtkCellArray* Lines=m_OriginalPolyData->GetLines();
+	vtkIdType* Ids;
+	vtkIdType NumberOfPoints;
+	int NewId=0;
+	Lines->InitTraversal();
+	
+	for(int i=0; Lines->GetNextCell(NumberOfPoints, Ids); i++)
 	{
-		if(m_Alphas[m_Alphas.size()-1][i]==0)
-			m_ModifiedPolyData->DeleteCell(i);
+		if(m_PreviousAlphas[m_PreviousAlphas.size()-1][i]==1)
+		{
+			vtkPolyLine* NewLine=vtkPolyLine::New();
+			NewLine->GetPointIds()->SetNumberOfIds(NumberOfPoints);
+			for(int j=0; j<NumberOfPoints; j++)
+			{
+				NewPoints->InsertNextPoint(Points->GetPoint(Ids[j]));
+				NewLine->GetPointIds()->SetId(j,NewId);
+				NewId++;
+				NewScalars->InsertNextValue(Scalars->GetComponent(0,Ids[j]));
+				double tensorValue[9];
+				for(int k=0; k<9; k++)
+					tensorValue[k]=Tensors->GetComponent(Ids[j],k);
+				NewTensors->InsertNextTuple(tensorValue);
+			}
+			NewLines->InsertNextCell(NewLine);
+		}
 	}
-	m_ModifiedPolyData->RemoveDeletedCells();
+	ModifiedPolyData->SetPoints(NewPoints);
+	ModifiedPolyData->GetPointData()->SetTensors(NewTensors);
+	ModifiedPolyData->SetLines(NewLines);
+	ModifiedPolyData->GetPointData()->SetScalars(NewScalars);
+	m_ModifiedPolyData->DeepCopy(ModifiedPolyData);
+	Render();
+}
+
+vtkImplicitPlaneWidget* FiberDisplay::GetPlan()
+{
+	return m_Plane;
+}
+
+void FiberDisplay::InitPlan(double Bounds[])
+{
+	m_Plane->SetPlaceFactor(1);
+	m_Plane->PlaceWidget(Bounds);
+	m_Plane->SetInteractor(iren);
+	m_Plane->SetOrigin((Bounds[0]+Bounds[1])/2,(Bounds[2]+Bounds[3])/2,(Bounds[4]+Bounds[5])/2);
+	m_Plane->SetNormal(1,0,0);
+	m_Plane->UpdatePlacement();
+	m_Plane->Off();
 }
 	
