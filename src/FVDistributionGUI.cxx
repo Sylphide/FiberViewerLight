@@ -79,12 +79,9 @@ void FVDistributionGUI::ClearHist()
 	m_Distance.clear();
 }
 
-void FVDistributionGUI::InitDistance()
+void FVDistributionGUI::InitDistance(int NbFibers)
 {
 	m_Distance.clear();
-	vtkSmartPointer<vtkPolyData> PolyData;
-	PolyData=m_Display->GetModifiedPolyData();
-	int NbFibers=PolyData->GetNumberOfCells();
 	for (int i = 0 ; i < NbFibers ; i++)
 	{
 		std::vector<double> Line;
@@ -101,7 +98,7 @@ void FVDistributionGUI::SetMethod(std::string Sender)
 	vtkSmartPointer<vtkPolyData> PolyData;
 	PolyData=m_Display->GetModifiedPolyData();
 	int NbFibers=PolyData->GetNumberOfCells();
-	InitDistance();
+	InitDistance(NbFibers);
 	if(m_Sender=="Gravity")
 		ApplyGravity(NbFibers);
 	else if(m_Sender=="Hausdorff")
@@ -112,59 +109,59 @@ void FVDistributionGUI::SetMethod(std::string Sender)
 
 void FVDistributionGUI::ApplyGravity(int NbFibers)
 {
+	int CountProgress=0;
 	ComputeCOM();
 	for (int i = 0 ; i < NbFibers ; i++)
 	{
 		//for all the other fibers
-		for (int j = 1 ; j < NbFibers ; j++)
+		for (int j = i ; j < NbFibers ; j++)
 		{
-			if (j>=i)
-			{
-				m_Distance[i][j] = ComputeGravDist(i,j);
-				m_Distance[j][i] = m_Distance[i][j];
-			}
+			m_Distance[i][j] = ComputeGravDist(i,j);
+			m_Distance[j][i] = m_Distance[i][j];
+			CountProgress++;
+			emit Progress(CountProgress*200/(NbFibers*NbFibers));
 		}
 	}
 }
 
 void FVDistributionGUI::ApplyHausdorff(int NbFibers)
 {
+	int CountProgress=0;
 	//This loop will be done as many times as the number of fiber
 	for (int i=0;i<NbFibers;i++)
 	{
 		//the index of the column depends on the number of the client and the line. Here is the complexe function that we have found.
-		for (int j=0;j<NbFibers;j++)
+		for (int j=i;j<NbFibers;j++)
 		{
-			if (j>=i)
-			{
-				//As each client compute the i,j and the j,i MaxMin, the Hausdorff distance is simply the max from these both.
-				double x1 = ComputeHausDist(j,i);
-				double x2 = ComputeHausDist(i,j);
-				double Max = x1;
-				if (x2 > Max)
-					Max = x2;
-				//result has the kth hausdorff distance for this client
-				m_Distance[i][j] =  Max;
-				m_Distance[j][i] =  Max;
-			}
+			//As each client compute the i,j and the j,i MaxMin, the Hausdorff distance is simply the max from these both.
+			double x1 = ComputeHausDist(j,i);
+			double x2 = ComputeHausDist(i,j);
+			double Max = x1;
+			if (x2 > Max)
+				Max = x2;
+			//result has the kth hausdorff distance for this client
+			m_Distance[i][j] =  Max;
+			m_Distance[j][i] =  Max;
+			CountProgress++;
+			emit Progress(CountProgress*200/(NbFibers*NbFibers));
 		}
 	}
 }
 
 void FVDistributionGUI::ApplyMean(int NbFibers)
 {
+	int CountProgress=0;
 	for(int i=0; i<NbFibers; i++)
 	{
-		for(int j=0; j<NbFibers; j++)
+		for(int j=i; j<NbFibers; j++)
 		{
-			if (j>=i)
-			{
-				double x1 = ComputeMeanDistance(j,i);
-				double x2 = ComputeMeanDistance(i,j);
-				double MeanVal = (x1 + x2) / 2;
-				m_Distance[i][j] =  MeanVal;
-				m_Distance[j][i] =  MeanVal;
-			}
+			double x1 = ComputeMeanDistance(j,i);
+			double x2 = ComputeMeanDistance(i,j);
+			double MeanVal = (x1 + x2) / 2;
+			m_Distance[i][j] =  MeanVal;
+			m_Distance[j][i] =  MeanVal;
+			CountProgress++;
+			emit Progress(CountProgress*200/(NbFibers*NbFibers));
 		}
 	}
 }

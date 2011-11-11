@@ -31,6 +31,7 @@ FiberViewerLightGUI::FiberViewerLightGUI(QWidget* parent):QWidget(parent)
 	connect(m_PB_Redo, SIGNAL(clicked()), this, SLOT(RedoAction()));
 	connect(m_PB_SaveVTK, SIGNAL(clicked()), this, SLOT(SaveVTK()));
 	connect(m_PB_Plane, SIGNAL(clicked()), this, SLOT(OpenPlanSetting()));
+	connect(m_DistributionGUI, SIGNAL(Progress(int)), m_ProgressBar, SLOT(setValue(int)));
 }
 
 
@@ -42,8 +43,8 @@ void FiberViewerLightGUI::InitWidgets()
 {
 	
 	m_GB_ActionPanel=new QGroupBox("Fiber Viewer Light 1.0");
-	m_GB_ActionPanel->setMinimumSize(300,430);
-	m_GB_ActionPanel->setMaximumSize(300,430);
+	m_GB_ActionPanel->setMinimumSize(300,450);
+	m_GB_ActionPanel->setMaximumSize(300,450);
 	
 	m_GB_LengthPanel=new QGroupBox("Length");
 	m_GB_LengthPanel->setMinimumSize(300,430);
@@ -70,6 +71,8 @@ void FiberViewerLightGUI::InitWidgets()
 	m_PlanSetting=new PlanSetting(this, m_Display);
 	m_PlanSetting->hide();
 	
+	m_ProgressBar=new QProgressBar;
+	m_ProgressBar->setValue(0);
 	m_LE_VTKInput=new QLineEdit(this);
 	m_LE_VTKOutput=new QLineEdit(this);
 	m_TB_BrowserVTKInput=new QToolButton(this);
@@ -136,6 +139,7 @@ void FiberViewerLightGUI::InitWidgets()
 	HL_Navigation->addWidget(m_PB_Redo);
 	VL_ActionPanel->addLayout(HL_Navigation);
 	VL_ActionPanel->addWidget(m_PB_SaveVTK);
+	VL_ActionPanel->addWidget(m_ProgressBar);
 	VL_ActionPanel->addStretch(1);
 	
 	m_GB_ActionPanel->setLayout(VL_ActionPanel);
@@ -352,14 +356,15 @@ void FiberViewerLightGUI::OpenDistributionPanel()
 {
 	if(m_LE_VTKInput->text()!="")
 	{
-		m_GB_ActionPanel->hide();
-		m_GB_DistributionPanel->show();
 		if(sender()==m_PB_Gravity)
 			m_DistributionGUI->SetMethod("Gravity");
 		else if(sender()==m_PB_Hausdorff)
 			m_DistributionGUI->SetMethod("Hausdorff");
 		else if(sender()==m_PB_Mean)
 			m_DistributionGUI->SetMethod("Mean");
+		m_GB_ActionPanel->hide();
+		m_GB_DistributionPanel->show();
+		m_ProgressBar->setValue(0);
 	}
 	else
 		QMessageBox::warning(this, "Warning", "No Fiber selected!");

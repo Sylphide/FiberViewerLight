@@ -35,7 +35,7 @@ class FVDistributionGUI : public FVPanelGUI
 	public:
 		FVDistributionGUI(QWidget* Parent, FiberDisplay* Display);
 		void ClearHist();
-		void InitDistance();
+		void InitDistance(int NbFibers);
 		void SetMethod(std::string Sender);
 		std::vector<int> GetMark(){return m_Mark;}
 		void ApplyGravity(int NbFibers);
@@ -52,6 +52,9 @@ class FVDistributionGUI : public FVPanelGUI
 		void NextAction();
 		void Plot();
 		void UndoAction();
+		
+	signals:
+		void Progress(int);
 		
 	private:
 		QLabel* m_L_Min;

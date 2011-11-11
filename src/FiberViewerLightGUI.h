@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QSpinBox>
 #include <QMessageBox>
+#include <QProgressBar>
 
 #include "QVTKWidget.h"
 
@@ -88,6 +89,7 @@ class FiberViewerLightGUI: public QWidget
 		QPushButton* m_PB_Redo;
 		QPushButton* m_PB_SaveVTK;
 		QPushButton* m_PB_Plane;
+		QProgressBar* m_ProgressBar;
 		std::string m_VtkFileName;
 		
 		FVLengthGUI* m_LengthGUI;
