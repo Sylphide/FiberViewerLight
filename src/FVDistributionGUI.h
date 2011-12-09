@@ -1,6 +1,8 @@
 #ifndef FVGLOBALGUI_H
 #define FVGLOBALGUI_H
 
+#include <sstream>
+
 #include <QLineEdit>
 #include <QPushButton>
 #include <QToolButton>
@@ -47,24 +49,22 @@ class FVDistributionGUI : public FVPanelGUI
 		double ComputeGravDist(int source,int target);
 		double ComputeHausDist(int Source,int Target);
 		double ComputeMeanDistance(int Source,int Target);
+		double GetMaxDistance();
 		
 	protected slots:
 		void NextAction();
 		void Plot();
 		void UndoAction();
 		
-	signals:
-		void Progress(int);
-		
 	private:
 		QLabel* m_L_Min;
-		QLabel* m_L_Step;
+		QLabel* m_L_NbBars;
 		QLabel* m_L_Max;
 		QLabel* m_L_Threshold;
 		QLabel* m_L_Distribution;
 		QLabel* m_L_ChooseThreshold;
 		QLineEdit* m_LE_Min;
-		QLineEdit* m_LE_Step;
+		QLineEdit* m_LE_NbBars;
 		QLineEdit* m_LE_Max;
 		QLineEdit* m_LE_Threshold;
 		QPushButton* m_PB_ComputeDistribution;

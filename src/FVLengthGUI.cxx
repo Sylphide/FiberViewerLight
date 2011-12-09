@@ -29,7 +29,7 @@ FVLengthGUI::FVLengthGUI(QWidget* Parent, FiberDisplay* Display) : FVPanelGUI(Pa
 	m_SB_UpperTh->setRange(0,1000);
 	m_L_LowerTh=new QLabel("Lower Threshold", this);
 	m_L_UpperTh=new QLabel("Upper Threshold", this);
-	m_PB_LengthComputation=new QPushButton("Length Computation",this);
+	m_PB_LengthComputation=new QPushButton("Apply Threshold",this);
 	
 	QGridLayout* GL_LengthFilter=new QGridLayout;
 	
@@ -67,7 +67,7 @@ void FVLengthGUI::LengthCalculation()
 	Lines=m_Display->GetModifiedPolyData()->GetLines();
 	
 	Lines->InitTraversal();
-	for(int i=0; i<Alpha.size(); i++)
+	for(unsigned int i=0; i<Alpha.size(); i++)
 	{
 		if(Alpha[i]==1)
 		{
@@ -92,6 +92,7 @@ void FVLengthGUI::LengthCalculation()
 		}
 		else
 			m_Length.push_back(-1);
+		emit Progress(i*100/Alpha.size());
 	}
 }
 
@@ -127,7 +128,7 @@ void FVLengthGUI::LengthComputation()
 	
 	std::vector<int> Alpha;
 	//For each fiber
-	for(int i=0; i<m_Length.size(); i++)
+	for(unsigned int i=0; i<m_Length.size(); i++)
 	{
 		if(m_Length[i]!=-1)
 		{
@@ -150,7 +151,7 @@ void FVLengthGUI::LengthComputation()
 	int NbFiber=0;
 	for(int i=0; i<m_SB_NbBars->value(); i++)
 	{
-		for(int j=0; j<m_Length.size(); j++)
+		for(unsigned int j=0; j<m_Length.size(); j++)
 		{
 			if(m_Length[j]>=IntervalMin && m_Length[j]<IntervalMax && m_Display->GetLastAlpha(FiberDisplay::Previous)[j]==1 && m_Length[j]!=-1)
 				NbFiber++;
@@ -207,7 +208,7 @@ void FVLengthGUI::InitLengthColorMap()
 	vtkLookupTable* ColorMap=vtkLookupTable::New();
 	ColorMap->SetNumberOfTableValues(m_Length.size());	
 	
-	for(int i=0; i<m_Length.size(); i++)
+	for(unsigned int i=0; i<m_Length.size(); i++)
 	{
 		//Fill Color array with R G B A (Alpha transparency)
 		if(m_Length[i]!=-1)

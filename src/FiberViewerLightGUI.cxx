@@ -9,7 +9,7 @@
  *Constructor: Initialize widgets and renderer and connect slots and signals
  ********************************************************************************/
 
-FiberViewerLightGUI::FiberViewerLightGUI(QWidget* parent):QWidget(parent)
+FiberViewerLightGUI::FiberViewerLightGUI(std::string input, std::string output, QWidget* parent):QWidget(parent)
 {
 	this->setMouseTracking(true);
 	
@@ -32,6 +32,12 @@ FiberViewerLightGUI::FiberViewerLightGUI(QWidget* parent):QWidget(parent)
 	connect(m_PB_SaveVTK, SIGNAL(clicked()), this, SLOT(SaveVTK()));
 	connect(m_PB_Plane, SIGNAL(clicked()), this, SLOT(OpenPlanSetting()));
 	connect(m_DistributionGUI, SIGNAL(Progress(int)), m_ProgressBar, SLOT(setValue(int)));
+	connect(m_LengthGUI, SIGNAL(Progress(int)), m_ProgressBar, SLOT(setValue(int)));
+	connect(m_NormCutGUI, SIGNAL(Progress(int)), m_ProgressBar, SLOT(setValue(int)));
+	
+	m_LE_VTKInput->setText(input.c_str());
+	m_LE_VTKOutput->setText(output.c_str());
+	EnterVTKInput();	
 }
 
 
@@ -100,6 +106,7 @@ void FiberViewerLightGUI::InitWidgets()
 	m_PB_SaveVTK->setEnabled(false);
 	m_PB_Plane=new QPushButton("Plane Option", this);
 	m_PB_Plane->setEnabled(false);
+	m_L_NbFiber=new QLabel("No Fiber Loaded",this);
 	
 	QFrame* F_HLine1=new QFrame;
 	F_HLine1->setFrameShadow(QFrame::Plain);
@@ -155,6 +162,7 @@ void FiberViewerLightGUI::InitWidgets()
 	GL_MainLayout->addWidget(m_GB_NormCutPanel,0,4,Qt::AlignTop);
 	
 	GL_MainLayout->addWidget(m_PlanSetting,1,0,1,5);
+	GL_MainLayout->addWidget(m_L_NbFiber,2,0,1,5);
 	GL_MainLayout->addWidget(m_PB_Plane,2,5);
 	GL_MainLayout->addWidget(m_Display,0,5,2,3);
 	GL_MainLayout->setColumnStretch(6,1);
@@ -193,6 +201,7 @@ void FiberViewerLightGUI::BrowserVTKInput()
 
 void FiberViewerLightGUI::EnterVTKInput()
 {
+	std::ostringstream nbfiber;
 	if(m_LE_VTKInput->text().toStdString()!="")
 	{
 		vtkSmartPointer<vtkPolyData> PolyData;
@@ -206,6 +215,9 @@ void FiberViewerLightGUI::EnterVTKInput()
 			m_Display->SetLookupTable(m_RedMap);
 			m_PB_SaveVTK->setEnabled(true);
 			m_PB_Plane->setEnabled(true);
+			nbfiber<<PolyData->GetNumberOfCells();
+			QString NbFiber=nbfiber.str().c_str();
+			m_L_NbFiber->setText(NbFiber + " fiber(s)");
 		}
 	}
 }
@@ -260,7 +272,6 @@ void FiberViewerLightGUI::InitRedMap(vtkPolyData* PolyData)
 	vtkLookupTable* RedMap=vtkLookupTable::New();
 	RedMap->SetNumberOfTableValues(PolyData->GetNumberOfCells());
 	
-	vtkPoints* Points=PolyData->GetPoints();
 	vtkCellArray* Lines=PolyData->GetLines();
 	vtkIdType* Ids;
 	vtkIdType NumberOfPoints;
@@ -313,9 +324,10 @@ void FiberViewerLightGUI::OpenLengthPanel()
 {
 	if(m_LE_VTKInput->text()!="")
 	{
-		m_GB_ActionPanel->hide();
 		m_LengthGUI->InitLengthPanel();
+		m_GB_ActionPanel->hide();
 		m_GB_LengthPanel->show();
+		m_ProgressBar->setValue(0);
 	}
 	else
 		QMessageBox::warning(this, "Warning", "No Fiber selected!");
@@ -374,9 +386,10 @@ void FiberViewerLightGUI::OpenNormCutPanel()
 {
 	if(m_LE_VTKInput->text()!="")
 	{
-		m_GB_ActionPanel->hide();
 		m_NormCutGUI->ApplyWeight();
+		m_GB_ActionPanel->hide();
 		m_GB_NormCutPanel->show();
+		m_ProgressBar->setValue(0);
 	}
 	else
 		QMessageBox::warning(this, "Warning", "No Fiber selected!");

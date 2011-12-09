@@ -120,7 +120,7 @@ void FVDisplayClassGUI::ColorFiber()
 	{
 		if(m_Mark[i]!=0)
 		{
-			for(unsigned int j=0; j<SelectionList.size(); j++)
+			for(int j=0; j<SelectionList.size(); j++)
 			{
 				if(m_Mark[i]-1==SelectionList[j].row())
 				{

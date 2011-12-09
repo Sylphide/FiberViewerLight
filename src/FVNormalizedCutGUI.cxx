@@ -62,27 +62,27 @@ void FVNormCutGUI::ApplyWeight()
 	vtkSmartPointer<vtkPolyData> PolyData;
 	PolyData=m_Display->GetModifiedPolyData();
 	int NbFibers=PolyData->GetNumberOfCells();
+	int CountProgress=0;
 	InitWeight();
 	for(int i=0; i<NbFibers; i++)
 	{
-		for(int j=0; j<NbFibers; j++)
+		for(int j=i; j<NbFibers; j++)
 		{
-			if (j>=i)
+			double x1 = ComputeMeanDistance(j,i);
+			double x2 = ComputeMeanDistance(i,j);
+			double MeanVal = (x1 + x2) / 2;
+			if(MeanVal!=0)
 			{
-				double x1 = ComputeMeanDistance(j,i);
-				double x2 = ComputeMeanDistance(i,j);
-				double MeanVal = (x1 + x2) / 2;
-				if(MeanVal!=0)
-				{
-					m_Weight[i][j] = 1/MeanVal;
-					m_Weight[j][i] = 1/MeanVal;
-				}
-				else
-				{
-					m_Weight[i][j]=0;
-					m_Weight[j][i]=0;
-				}
+				m_Weight[i][j] = 1/MeanVal;
+				m_Weight[j][i] = 1/MeanVal;
 			}
+			else
+			{
+				m_Weight[i][j]=0;
+				m_Weight[j][i]=0;
+			}
+			CountProgress++;
+			emit Progress(CountProgress*200/(NbFibers*NbFibers));
 		}
 	}
 }
@@ -160,7 +160,7 @@ double FVNormCutGUI::Assoc(int BeginId, int EndId, bool All)
 		}
 		else
 		{
-			for(int j=0; j<m_Weight.size() ; j++)
+			for(unsigned int j=0; j<m_Weight.size() ; j++)
 				SumWeight+=m_Weight[i][j];
 		}
 	}
@@ -178,7 +178,7 @@ std::vector<int> FVNormCutGUI::FillMark(std::vector<std::vector<double> > Weight
 	std::vector<int> Mark;
 	if(Weight.size()==1 || NumberOfCluster==1)
 	{
-		for(int i=0; i<Weight.size(); i++)
+		for(unsigned int i=0; i<Weight.size(); i++)
 			Mark.push_back(ClusterDone);
 		return Mark;
 	}
@@ -209,10 +209,10 @@ std::vector<int> FVNormCutGUI::FillMark(std::vector<std::vector<double> > Weight
 		
 		ClusterDone++;
 		SubWeight.clear();
-		for(int i=CutId+1; i<Weight.size(); i++)
+		for(unsigned int i=CutId+1; i<Weight.size(); i++)
 		{
 			std::vector<double>Line;
-			for(int j=CutId+1; j<=Weight.size(); j++)
+			for(unsigned int j=CutId+1; j<=Weight.size(); j++)
 				Line.push_back(Weight[i][j]);
 			SubWeight.push_back(Line);
 		}
@@ -222,7 +222,7 @@ std::vector<int> FVNormCutGUI::FillMark(std::vector<std::vector<double> > Weight
 			MarkTemp=FillMark(SubWeight,ClusterDone,NumberOfCluster/2);
 		else
 			MarkTemp=FillMark(SubWeight,ClusterDone,NumberOfCluster/2+1);
-		for(int i=0; i<MarkTemp.size(); i++)
+		for(unsigned int i=0; i<MarkTemp.size(); i++)
 			Mark.push_back(MarkTemp[i]);
 		return Mark;
 	}
@@ -233,7 +233,7 @@ double FVNormCutGUI::Cut(int Previous, int Next)
 	double Cut=0;
 	for(int i=0; i<=Previous; i++)
 	{
-		for(int j=Next; j<m_Weight.size(); j++)
+		for(unsigned int j=Next; j<m_Weight.size(); j++)
 			Cut+=m_Weight[i][j];
 	}
 	return Cut;

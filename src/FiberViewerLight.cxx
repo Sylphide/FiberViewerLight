@@ -15,13 +15,16 @@
 #include "vtkRenderer.h"
 #include "QVTKWidget.h"
 #include "FiberViewerLightGUI.h"
+#include "FiberViewerLightCLP.h"
 
 
 int main(int argc, char* argv[])
 {
+	PARSE_ARGS;
+	
 	QApplication app(argc, argv);
 	
-	FiberViewerLightGUI* GUIWin=new FiberViewerLightGUI;
+	FiberViewerLightGUI* GUIWin=new FiberViewerLightGUI(input,output);
 	GUIWin->show();
 	
 	return app.exec();

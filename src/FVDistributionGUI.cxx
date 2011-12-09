@@ -19,15 +19,15 @@ FVDistributionGUI::FVDistributionGUI(QWidget* Parent, FiberDisplay* Display) : F
 	m_L_Distribution=new QLabel("Computes classes distribution", this);
 	m_L_ChooseThreshold=new QLabel("Choose threshold", this);
 	m_L_Min=new QLabel("Min", this);
-	m_L_Step=new QLabel("Step", this);
+	m_L_NbBars=new QLabel("NbBars", this);
 	m_L_Max=new QLabel("Max", this);
 	m_L_Threshold=new QLabel("Threshold", this);
 	m_LE_Min=new QLineEdit(this);
 	m_LE_Min->setText("0");
-	m_LE_Step=new QLineEdit(this);
-	m_LE_Step->setText("0.1");
+	m_LE_NbBars=new QLineEdit(this);
+	m_LE_NbBars->setText("10");
 	m_LE_Max=new QLineEdit(this);
-	m_LE_Max->setText("1");
+
 	m_LE_Threshold=new QLineEdit(this);
 	m_LE_Threshold->setText("0.5");
 	m_PB_ComputeDistribution=new QPushButton("Computes distribution",this);
@@ -48,8 +48,8 @@ FVDistributionGUI::FVDistributionGUI(QWidget* Parent, FiberDisplay* Display) : F
 	VL_PanelLayout->addWidget(F_HLine1);
 	GL_Distribution->addWidget(m_L_Min, 0, 0);
 	GL_Distribution->addWidget(m_LE_Min, 0, 1);
-	GL_Distribution->addWidget(m_L_Step, 0, 2);
-	GL_Distribution->addWidget(m_LE_Step, 0, 3);
+	GL_Distribution->addWidget(m_L_NbBars, 0, 2);
+	GL_Distribution->addWidget(m_LE_NbBars, 0, 3);
 	GL_Distribution->addWidget(m_L_Max, 0, 4);
 	GL_Distribution->addWidget(m_LE_Max, 0, 5);
 	GL_Distribution->addWidget(m_PB_ComputeDistribution, 1, 0, 5, 0);
@@ -105,6 +105,11 @@ void FVDistributionGUI::SetMethod(std::string Sender)
 		ApplyHausdorff(NbFibers);
 	else if(m_Sender=="Mean")
 		ApplyMean(NbFibers);
+	
+	int Max=(int)GetMaxDistance();
+	std::ostringstream text;
+	text<<Max;
+	m_LE_Max->setText(text.str().c_str());
 }
 
 void FVDistributionGUI::ApplyGravity(int NbFibers)
@@ -172,7 +177,7 @@ void FVDistributionGUI::Plot()
 	QVector<QwtIntervalSample> Samples;
 	double Min=atof(m_LE_Min->text().toStdString().c_str());
 	double Max=atof(m_LE_Max->text().toStdString().c_str());
-	double Step=atof(m_LE_Step->text().toStdString().c_str());
+	double Step=(Max-Min)/atof(m_LE_NbBars->text().toStdString().c_str());
 	
 	for(double i=Min; i+Step<=Max; i+=Step)
 	{
@@ -225,6 +230,20 @@ void FVDistributionGUI::GenerateClasse(std::vector<std::vector<double> > Distanc
 	}
 }
 
+double FVDistributionGUI::GetMaxDistance()
+{
+	double Max=-100000;
+	for(unsigned int i=0; i<m_Distance.size(); i++)
+	{
+		for(unsigned int j=i; j<m_Distance[i].size(); j++)
+		{
+			if(m_Distance[i][j]>Max)
+				Max=m_Distance[i][j];
+		}
+	}
+	return Max;
+}
+
 int FVDistributionGUI::GetNumberOfClasse()
 {
 	//Get the max of the mark vector which is the number of classe
@@ -239,7 +258,6 @@ void FVDistributionGUI::ComputeCOM()
 {
 	vtkSmartPointer<vtkPolyData> PolyData;
 	PolyData=m_Display->GetModifiedPolyData();
-	int NbFibers=PolyData->GetNumberOfCells();
 	vtkPoints* Points=PolyData->GetPoints();
 	vtkCellArray* Lines=PolyData->GetLines();
 	vtkIdType* Ids;

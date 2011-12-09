@@ -9,7 +9,7 @@ FiberDisplay::FiberDisplay(QWidget* parent) : QWidget(parent)
 	m_Plane=vtkImplicitPlaneWidget::New();
 	
 	m_VTKW_RenderWin=new QVTKWidget;
-	m_VTKW_RenderWin->setMinimumSize(300,547);
+	m_VTKW_RenderWin->setMinimumSize(500,547);
 	
 	QGridLayout* MainLayout=new QGridLayout;
 	MainLayout->addWidget(m_VTKW_RenderWin);

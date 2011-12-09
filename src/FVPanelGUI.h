@@ -15,6 +15,7 @@ class FVPanelGUI: public QWidget
 		
 	signals:
 		void Exit(FVPanelGUI::ExitSignal Type);
+		void Progress(int);
 	
 	protected:
 		FiberDisplay* m_Display;

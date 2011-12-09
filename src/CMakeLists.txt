@@ -47,6 +47,15 @@ if(NOT QWT_LIBRARY)
 endif()
 set(QWT_LIBRARIES ${QWT_LIBRARY})
 
+FIND_PACKAGE(GenerateCLP REQUIRED)
+IF (GenerateCLP_FOUND)
+  INCLUDE(${GenerateCLP_USE_FILE})
+ELSE(GenerateCLP_FOUND)
+   MESSAGE(FATAL_ERROR, "GenerateCLP not found. Please set GenerateCLP_DIR.")
+ENDIF (GenerateCLP_FOUND)
+
+GENERATECLP(FiberViewerLight.cxx FiberViewerLight.xml)
+
 INCLUDE_DIRECTORIES(
   ${QT_INCLUDE_DIR}
   ${FVLight_BINARY_DIR}
